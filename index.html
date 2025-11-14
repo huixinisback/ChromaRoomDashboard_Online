@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📊 ChromaRoom Analytics Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0a0e27;
+            min-height: 100vh;
+            padding: 20px;
+            color: #e0e0e0;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: #1a1f3a;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .file-upload {
+            padding: 20px;
+            background: #252b45;
+            border-bottom: 2px solid #3a4160;
+            text-align: center;
+        }
+
+        .file-upload p {
+            color: #b0b8d0;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+
+        .file-upload input[type="file"] {
+            padding: 10px;
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            background: #1a1f3a;
+            color: #e0e0e0;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .tabs {
+            display: flex;
+            background: #252b45;
+            border-bottom: 2px solid #3a4160;
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            font-size: 18px;
+            font-weight: 600;
+            color: #b0b8d0;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .tab:hover {
+            background: #2d3450;
+            color: #e0e0e0;
+        }
+
+        .tab.active {
+            background: #1a1f3a;
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px;
+            background: #1a1f3a;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section h2 {
+            color: #ffffff;
+            margin-bottom: 15px;
+            font-size: 2.2em;
+            font-weight: 700;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 15px;
+        }
+
+        .section h3 {
+            color: #b0b8d0;
+            margin: 25px 0 15px 0;
+            font-size: 1.6em;
+            font-weight: 600;
+        }
+
+        .section h3 code {
+            color: #667eea;
+            background: #252b45;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #252b45 0%, #1e2440 100%);
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 1px solid #3a4160;
+        }
+
+        .metric-card h4 {
+            color: #b0b8d0;
+            font-size: 1.1em;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .metric-card .value {
+            font-size: 2.2em;
+            font-weight: bold;
+            color: #667eea;
+            line-height: 1.2;
+        }
+
+        .metric-card .delta {
+            font-size: 1em;
+            color: #b0b8d0;
+            margin-top: 8px;
+        }
+
+        .data-list {
+            background: #252b45;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border: 1px solid #3a4160;
+        }
+
+        .data-list ul {
+            list-style: none;
+        }
+
+        .data-list li {
+            padding: 8px;
+            border-bottom: 1px solid #3a4160;
+            color: #e0e0e0;
+        }
+
+        .data-list li:last-child {
+            border-bottom: none;
+        }
+
+        .warning {
+            background: #3d2e1a;
+            border: 1px solid #ffc107;
+            color: #ffd54f;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 16px;
+        }
+
+        .info {
+            background: #1a2d3a;
+            border: 1px solid #4ecdc4;
+            color: #7dd3cc;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 16px;
+        }
+
+        .code-block {
+            background: #282c34;
+            color: #abb2bf;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            margin: 15px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: #252b45;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            border: 1px solid #3a4160;
+        }
+
+        table th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        table td {
+            padding: 15px;
+            border-bottom: 1px solid #3a4160;
+            color: #e0e0e0;
+            font-size: 15px;
+        }
+
+        table tr:hover {
+            background: #2d3450;
+        }
+
+        .area-card, .feature-card {
+            background: #252b45;
+            border: 2px solid #3a4160;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 20px 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .area-card h3, .feature-card h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            font-weight: 700;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin: 20px 0;
+            background: #252b45;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #3a4160;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #b0b8d0;
+            font-size: 18px;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        p {
+            color: #b0b8d0;
+            font-size: 17px;
+            line-height: 1.6;
+        }
+
+        .description-text {
+            color: #b0b8d0;
+            font-size: 15px;
+            font-style: italic;
+            margin-top: 5px;
+            margin-bottom: 15px;
+        }
+
+        hr {
+            border: none;
+            border-top: 2px solid #3a4160;
+            margin: 25px 0;
+        }
+
+        strong {
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        code {
+            color: #667eea;
+            background: #252b45;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.95em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 ChromaRoom Analytics Dashboard</h1>
+        </div>
+
+        <div class="file-upload">
+            <input type="file" id="dbFile" accept=".sqlite3,.db" />
+            <p style="margin-top: 10px; color: #6c757d;">Select your datastore.sqlite3 file to load analytics</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab(0)">👤 Player Lifetime</button>
+            <button class="tab" onclick="switchTab(1)">📍 Area Popularity</button>
+            <button class="tab" onclick="switchTab(2)">⚙️ Feature Usage</button>
+            <button class="tab" onclick="switchTab(3)">👥 Social Connections</button>
+            <button class="tab" onclick="switchTab(4)">🎂 Player Age Groups</button>
+            <button class="tab" onclick="switchTab(5)">👗 Avatar Items</button>
+        </div>
+
+        <div id="tab0" class="tab-content active">
+            <div class="section">
+                <h2>👤 Player Lifetime and Engagement</h2>
+                <h3>Datastore: <code>PlayerLifetime_V1</code></h3>
+                <div id="playerLifetimeContent"></div>
+            </div>
+        </div>
+
+        <div id="tab1" class="tab-content">
+            <div class="section">
+                <h2>📍 Area Popularity and Player Preferences</h2>
+                <h3>Datastore: <code>AreaTimeRecords_V1</code></h3>
+                <div id="areaContent"></div>
+            </div>
+        </div>
+
+        <div id="tab2" class="tab-content">
+            <div class="section">
+                <h2>⚙️ Feature Usage and Interaction Patterns</h2>
+                <h3>Datastore: <code>FeatureUsage_V1</code></h3>
+                <div id="featureContent"></div>
+            </div>
+        </div>
+
+        <div id="tab3" class="tab-content">
+            <div class="section">
+                <h2>👥 Social Connections and Friend-Based Play</h2>
+                <h3>Datastore: <code>FriendConnections_V1</code></h3>
+                <div id="friendContent"></div>
+            </div>
+        </div>
+
+        <div id="tab4" class="tab-content">
+            <div class="section">
+                <h2>🎂 Player Age Group Segmentation</h2>
+                <h3>Datastore: <code>PlayerAgeGroups_V1</code></h3>
+                <div id="ageGroupContent"></div>
+            </div>
+        </div>
+
+        <div id="tab5" class="tab-content">
+            <div class="section">
+                <h2>👗 Avatar Item Popularity and Style Insights</h2>
+                <h3>Datastore: <code>AvatarItemUsage_V1</code></h3>
+                <div id="avatarContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let db = null;
+        let SQL = null;
+
+        // Initialize sql.js
+        initSqlJs({
+            locateFile: file => `https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/${file}`
+        }).then(SQLModule => {
+            SQL = SQLModule;
+        });
+
+        // File upload handler
+        document.getElementById('dbFile').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            if (!SQL) {
+                alert('SQL.js is still loading. Please wait a moment and try again.');
+                return;
+            }
+
+            const arrayBuffer = await file.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
+            db = new SQL.Database(uint8Array);
+            
+            loadAllTabs();
+        });
+
+        function switchTab(index) {
+            document.querySelectorAll('.tab').forEach((tab, i) => {
+                tab.classList.toggle('active', i === index);
+            });
+            document.querySelectorAll('.tab-content').forEach((content, i) => {
+                content.classList.toggle('active', i === index);
+            });
+        }
+
+        function loadAllTabs() {
+            loadPlayerLifetime();
+            loadAreaData();
+            loadFeatureUsage();
+            loadFriendConnections();
+            loadPlayerAgeGroups();
+            loadAvatarItems();
+        }
+
+        function loadFromDatastore(datastoreName) {
+            if (!db) return null;
+
+            try {
+                // Get table name
+                const tables = db.exec("SELECT name FROM sqlite_master WHERE type='table'");
+                if (!tables.length) return null;
+                const tableName = tables[0].values[0][0];
+
+                // Get columns
+                const columns = db.exec(`PRAGMA table_info(${tableName})`);
+                const columnNames = columns[0].values.map(col => col[1]);
+                
+                if (!columnNames.includes('datastore_name')) return null;
+
+                // Query data
+                const result = db.exec(`SELECT * FROM ${tableName} WHERE datastore_name = ?`, [datastoreName]);
+                if (!result.length) return null;
+
+                const rows = result[0].values;
+                const dataRawIndex = columnNames.indexOf('data_raw');
+                
+                if (dataRawIndex === -1) {
+                    // Direct column format
+                    return rows.map(row => {
+                        const obj = {};
+                        columnNames.forEach((col, i) => {
+                            obj[col] = row[i];
+                        });
+                        return obj;
+                    });
+                } else {
+                    // JSON format in data_raw
+                    const records = [];
+                    for (const row of rows) {
+                        try {
+                            const jsonStr = row[dataRawIndex];
+                            if (jsonStr) {
+                                const parsed = JSON.parse(jsonStr);
+                                records.push(parsed);
+                            }
+                        } catch (e) {
+                            continue;
+                        }
+                    }
+                    return records;
+                }
+            } catch (e) {
+                console.error('Error loading datastore:', e);
+                return null;
+            }
+        }
+
+        function formatDuration(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            
+            if (hours > 0) {
+                return `${hours}h ${minutes}m ${secs}s`;
+            } else if (minutes > 0) {
+                return `${minutes}m ${secs}s`;
+            } else {
+                return `${secs}s`;
+            }
+        }
+
+        function formatNumber(num) {
+            return num.toLocaleString();
+        }
+
+        // Tab 1: Player Lifetime
+        function loadPlayerLifetime() {
+            const content = document.getElementById('playerLifetimeContent');
+            const data = loadFromDatastore('PlayerLifetime_V1');
+            
+            if (!data || !data.length) {
+                content.innerHTML = '<div class="warning">⚠️ No player lifetime data found.</div>';
+                return;
+            }
+
+            // Process data
+            const players = data.map(d => ({
+                userId: d.userId,
+                timesGameVisited: parseFloat(d.timesGameVisited) || 0,
+                totalDurationSec: parseFloat(d.totalDurationSec) || 0,
+                avgTimePerVisit: (parseFloat(d.timesGameVisited) || 0) > 0 
+                    ? (parseFloat(d.totalDurationSec) || 0) / (parseFloat(d.timesGameVisited) || 1)
+                    : 0
+            })).filter(p => p.timesGameVisited > 0 || p.totalDurationSec > 0);
+
+            let html = `<p style="font-size: 18px; margin-bottom: 15px;"><strong>Total Players:</strong> ${formatNumber(players.length)}</p><hr>`;
+
+            // Times Game Visited
+            const timesVisited = players.map(p => p.timesGameVisited).filter(v => v > 0);
+            if (timesVisited.length) {
+                timesVisited.sort((a, b) => b - a);
+                const top5 = timesVisited.slice(0, 5);
+                const mean = timesVisited.reduce((a, b) => a + b, 0) / timesVisited.length;
+                const median = timesVisited[Math.floor(timesVisited.length / 2)];
+                
+                // Mode
+                const counts = {};
+                timesVisited.forEach(v => counts[v] = (counts[v] || 0) + 1);
+                const mode = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+                const modeCount = counts[mode];
+
+                html += `<h3>🎮 Times Game Visited</h3>`;
+                html += `<div class="metrics-grid">`;
+                html += `<div class="metric-card"><h4>Top 5 Data Points</h4><div class="value">${top5.map(v => formatNumber(Math.floor(v))).join('<br>')}</div></div>`;
+                html += `<div class="metric-card"><h4>Highest Frequency</h4><div class="value">${formatNumber(Math.floor(mode))}</div><div class="delta">${formatNumber(modeCount)} occurrences</div></div>`;
+                html += `<div class="metric-card"><h4>Mean</h4><div class="value">${mean.toFixed(2)}</div></div>`;
+                html += `<div class="metric-card"><h4>Median</h4><div class="value">${formatNumber(Math.floor(median))}</div></div>`;
+                html += `</div><hr>`;
+            }
+
+            // Total Duration
+            const durations = players.map(p => p.totalDurationSec).filter(v => v > 0);
+            if (durations.length) {
+                durations.sort((a, b) => b - a);
+                const top5 = durations.slice(0, 5);
+                const mean = durations.reduce((a, b) => a + b, 0) / durations.length;
+                const median = durations[Math.floor(durations.length / 2)];
+                
+                const counts = {};
+                durations.forEach(v => counts[v] = (counts[v] || 0) + 1);
+                const mode = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+                const modeCount = counts[mode];
+
+                html += `<h3>⏱️ Total Duration (Seconds)</h3>`;
+                html += `<div class="metrics-grid">`;
+                html += `<div class="metric-card"><h4>Top 5 Data Points</h4><div class="value" style="font-size: 1.2em;">${top5.map(v => formatDuration(v) + '<br>(' + formatNumber(Math.floor(v)) + 's)').join('<br>')}</div></div>`;
+                html += `<div class="metric-card"><h4>Highest Frequency</h4><div class="value">${formatDuration(parseFloat(mode))}</div><div class="delta">${formatNumber(modeCount)} occurrences</div></div>`;
+                html += `<div class="metric-card"><h4>Mean</h4><div class="value">${formatDuration(mean)}</div><div class="delta">${mean.toFixed(2)} seconds</div></div>`;
+                html += `<div class="metric-card"><h4>Median</h4><div class="value">${formatDuration(median)}</div><div class="delta">${formatNumber(Math.floor(median))} seconds</div></div>`;
+                html += `</div><hr>`;
+            }
+
+            // Average Time Per Visit
+            const avgTimes = players.map(p => p.avgTimePerVisit).filter(v => v > 0);
+            if (avgTimes.length) {
+                const counts = {};
+                avgTimes.forEach(v => counts[v] = (counts[v] || 0) + 1);
+                const sortedByFreq = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                const top5Freq = sortedByFreq.slice(0, 5);
+                
+                avgTimes.sort((a, b) => a - b);
+                const median5Start = Math.max(0, Math.floor(avgTimes.length / 2) - 2);
+                const median5 = avgTimes.slice(median5Start, median5Start + 5);
+
+                html += `<h3>📊 Average Time Per Visit</h3>`;
+                html += `<div class="metrics-grid">`;
+                html += `<div class="metric-card"><h4>Highest 5 Frequency</h4><div class="value" style="font-size: 1em;">${top5Freq.map(([v, c]) => formatDuration(parseFloat(v)) + ': ' + formatNumber(c) + ' occurrences').join('<br>')}</div></div>`;
+                html += `<div class="metric-card"><h4>Median 5</h4><div class="value" style="font-size: 1em;">${median5.map((v, i) => (i+1) + '. ' + formatDuration(v) + ': ' + formatNumber(counts[v] || 0) + ' occurrences').join('<br>')}</div></div>`;
+                html += `</div>`;
+            }
+
+            content.innerHTML = html;
+        }
+
+        // Tab 2: Area Popularity
+        function loadAreaData() {
+            const content = document.getElementById('areaContent');
+            const data = loadFromDatastore('AreaTimeRecords_V1');
+            
+            if (!data || !data.length) {
+                content.innerHTML = '<div class="warning">⚠️ No area data found.</div>';
+                return;
+            }
+
+            const areas = {};
+            data.forEach(d => {
+                const areaId = d.areaId;
+                if (!areaId) return;
+                
+                if (!areas[areaId]) {
+                    areas[areaId] = [];
+                }
+                areas[areaId].push({
+                    timesVisited: parseFloat(d.timesVisited) || 0,
+                    totalDurationSec: parseFloat(d.totalDurationSec) || 0,
+                    firstEnteredIso: d.firstEnteredIso,
+                    lastExitedIso: d.lastExitedIso
+                });
+            });
+
+            const areaIds = Object.keys(areas).sort();
+            let html = `<p style="font-size: 18px; margin-bottom: 15px;"><strong>Total Areas:</strong> ${areaIds.length} | <strong>Total Records:</strong> ${formatNumber(data.length)}</p><hr>`;
+
+            areaIds.forEach(areaId => {
+                const areaData = areas[areaId];
+                const timesVisited = areaData.map(a => a.timesVisited).filter(v => v > 0);
+                
+                if (!timesVisited.length) return;
+
+                const total = timesVisited.reduce((a, b) => a + b, 0);
+                const mean = total / areaData.length;
+                const sorted = [...timesVisited].sort((a, b) => a - b);
+                const median = sorted[Math.floor(sorted.length / 2)];
+                const max = Math.max(...timesVisited);
+
+                const counts = {};
+                timesVisited.forEach(v => counts[v] = (counts[v] || 0) + 1);
+                const mode = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+                const modeCount = counts[mode];
+
+                const visitCounts = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                const top5 = visitCounts.slice(0, 5);
+
+                const lastEntered = areaData.map(a => a.firstEnteredIso).filter(d => d).sort().pop();
+                const lastEnteredStr = lastEntered ? new Date(lastEntered).toLocaleString() : 'N/A';
+
+                html += `<div class="area-card">`;
+                html += `<h3>🏷️ ${areaId}</h3>`;
+                html += `<div class="metrics-grid">`;
+                html += `<div class="metric-card"><h4>Total Times Visited</h4><div class="value">${formatNumber(Math.floor(total))}</div></div>`;
+                html += `<div class="metric-card"><h4>Mean Times Visited</h4><div class="value">${mean.toFixed(2)}</div></div>`;
+                html += `<div class="metric-card"><h4>Median Times Visited</h4><div class="value">${formatNumber(Math.floor(median))}</div></div>`;
+                html += `<div class="metric-card"><h4>Max Times Visited</h4><div class="value">${formatNumber(Math.floor(max))}</div></div>`;
+                html += `<div class="metric-card"><h4>Most Common</h4><div class="value">${formatNumber(Math.floor(mode))}</div><div class="delta">${formatNumber(modeCount)} occurrences</div></div>`;
+                html += `<div class="metric-card"><h4>Top 5 Most Common Visit Counts</h4><div class="value" style="font-size: 1em;">${top5.map(([v, c]) => `${formatNumber(Math.floor(v))} visits: ${formatNumber(c)} occurrences`).join('<br>')}</div></div>`;
+                html += `</div>`;
+                html += `<div class="metric-card" style="margin-top: 20px;"><h4>Last Entered Time</h4><div class="value" style="font-size: 1.2em;">${lastEnteredStr}</div></div>`;
+                html += `</div><hr>`;
+            });
+
+            content.innerHTML = html;
+        }
+
+        // Tab 3: Feature Usage
+        function loadFeatureUsage() {
+            const content = document.getElementById('featureContent');
+            const data = loadFromDatastore('FeatureUsage_V1');
+            
+            if (!data || !data.length) {
+                content.innerHTML = '<div class="warning">⚠️ No feature usage data found.</div>';
+                return;
+            }
+
+            const features = {};
+            data.forEach(d => {
+                const featureId = d.featureId;
+                if (!featureId) return;
+                
+                if (!features[featureId]) {
+                    features[featureId] = [];
+                }
+                features[featureId].push({
+                    timesUsed: parseFloat(d.timesUsed) || 0,
+                    totalDurationSec: parseFloat(d.totalDurationSec) || 0
+                });
+            });
+
+            const featureIds = Object.keys(features).sort();
+            let html = `<p style="font-size: 18px; margin-bottom: 15px;"><strong>Total Features:</strong> ${featureIds.length} | <strong>Total Records:</strong> ${formatNumber(data.length)}</p><hr>`;
+
+            featureIds.forEach(featureId => {
+                const featureData = features[featureId];
+                const totalTimesUsed = featureData.reduce((a, b) => a + b.timesUsed, 0);
+                const totalDurationSec = featureData.reduce((a, b) => a + b.totalDurationSec, 0);
+                const zeroUsage = featureData.filter(f => f.timesUsed === 0).length;
+                const totalPlayers = featureData.length;
+                const playersWithUsage = totalPlayers - zeroUsage;
+
+                const durations = featureData.map(f => f.totalDurationSec).filter(v => v > 0);
+                let durationAnalysis = '';
+                if (durations.length) {
+                    // Top 5 data points (raw values, not rounded)
+                    durations.sort((a, b) => b - a);
+                    const top5DataPoints = durations.slice(0, 5);
+                    
+                    // Round to nearest 15 seconds for frequency analysis
+                    const rounded = durations.map(d => Math.round(d / 15) * 15);
+                    const counts = {};
+                    rounded.forEach(v => counts[v] = (counts[v] || 0) + 1);
+                    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                    const top5 = sorted.slice(0, 5);
+                    const median5 = sorted.slice(Math.max(0, Math.floor(sorted.length / 2) - 2), Math.floor(sorted.length / 2) + 3);
+
+                    durationAnalysis = `<div class="metrics-grid" style="margin-top: 20px;">`;
+                    durationAnalysis += `<div class="metric-card"><h4>Top 5 Data Points</h4><p class="description-text">Highest 5 total duration values (raw seconds, not rounded)</p><div class="value" style="font-size: 1em;">${top5DataPoints.map((v, i) => {
+                        const secs = Math.floor(v);
+                        const mins = Math.floor(secs / 60);
+                        const rem = secs % 60;
+                        return `${i+1}. ${secs}s${mins > 0 ? ` (${mins}min ${rem}s)` : ''}`;
+                    }).join('<br>')}</div></div>`;
+                    durationAnalysis += `<div class="metric-card"><h4>Total Duration - Top 5 Frequency</h4><div class="value" style="font-size: 1em;">${top5.map(([s, c]) => {
+                        const secs = parseInt(s);
+                        const mins = Math.floor(secs / 60);
+                        const rem = secs % 60;
+                        return `${secs}s${mins > 0 ? ` (${mins}min ${rem}s)` : ''}: ${formatNumber(c)} occurrences`;
+                    }).join('<br>')}</div></div>`;
+                    durationAnalysis += `<div class="metric-card"><h4>Total Duration - Median 5</h4><div class="value" style="font-size: 1em;">${median5.map(([s, c], i) => {
+                        const secs = parseInt(s);
+                        const mins = Math.floor(secs / 60);
+                        const rem = secs % 60;
+                        return `${i+1}. ${secs}s${mins > 0 ? ` (${mins}min ${rem}s)` : ''}: ${formatNumber(c)} occurrences`;
+                    }).join('<br>')}</div></div>`;
+                    durationAnalysis += `</div>`;
+                }
+
+                html += `<div class="feature-card">`;
+                html += `<h3>🎮 ${featureId}</h3>`;
+                html += `<div class="metrics-grid">`;
+                html += `<div class="metric-card"><h4>Total Times Used</h4><div class="value">${formatNumber(Math.floor(totalTimesUsed))}</div></div>`;
+                html += `<div class="metric-card"><h4>Total Duration</h4><div class="value">${formatNumber(Math.floor(totalDurationSec / 60))} min</div><div class="delta">${formatNumber(Math.floor(totalDurationSec))} seconds</div></div>`;
+                html += `<div class="metric-card"><h4>Players with 0 Uses</h4><div class="value">${formatNumber(zeroUsage)}</div><div class="delta">${totalPlayers > 0 ? ((zeroUsage / totalPlayers) * 100).toFixed(1) + '%' : '0%'}</div></div>`;
+                html += `<div class="metric-card"><h4>Players Who Used</h4><div class="value">${formatNumber(playersWithUsage)}</div><div class="delta">${totalPlayers > 0 ? ((playersWithUsage / totalPlayers) * 100).toFixed(1) + '%' : '0%'}</div></div>`;
+                html += `</div>`;
+                if (durationAnalysis) html += durationAnalysis;
+                html += `</div><hr>`;
+            });
+
+            content.innerHTML = html;
+        }
+
+        // Tab 4: Friend Connections
+        function loadFriendConnections() {
+            const content = document.getElementById('friendContent');
+            const data = loadFromDatastore('FriendConnections_V1');
+            
+            if (!data || !data.length) {
+                content.innerHTML = '<div class="warning">⚠️ No friend connection data found.</div>';
+                return;
+            }
+
+            const players = data.map(d => ({
+                userId: d.userId,
+                friendsInLastGame: parseFloat(d.friendsInLastGame) || 0,
+                maxFriendsInOneGame: parseFloat(d.maxFriendsInOneGame) || 0,
+                totalTimeWithFriends: parseFloat(d.totalTimeWithFriends) || 0,
+                longestContinuousFriendSession: parseFloat(d.longestContinuousFriendSession) || 0
+            }));
+
+            const playersWithFriends = players.filter(p => 
+                p.friendsInLastGame > 0 || 
+                p.maxFriendsInOneGame > 0 || 
+                p.totalTimeWithFriends > 0 || 
+                p.longestContinuousFriendSession > 0
+            ).length;
+
+            let html = `<div class="metrics-grid">`;
+            html += `<div class="metric-card"><h4>Total Players</h4><div class="value">${formatNumber(players.length)}</div></div>`;
+            html += `<div class="metric-card"><h4>Players Who Play With Friends</h4><div class="value">${formatNumber(playersWithFriends)}</div><div class="delta">${players.length > 0 ? ((playersWithFriends / players.length) * 100).toFixed(1) + '%' : '0%'}</div></div>`;
+            html += `</div><hr>`;
+
+            // Longest Continuous Friend Session
+            const longestSessions = players.map(p => p.longestContinuousFriendSession).filter(v => v > 0);
+            if (longestSessions.length) {
+                longestSessions.sort((a, b) => a - b);
+                const counts = {};
+                longestSessions.forEach(v => counts[v] = (counts[v] || 0) + 1);
+                const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                const top5 = sorted.slice(0, 5);
+                const medianIdx = Math.floor(longestSessions.length / 2);
+                const median5 = longestSessions.slice(Math.max(0, medianIdx - 2), medianIdx + 3);
+                const mean = longestSessions.reduce((a, b) => a + b, 0) / longestSessions.length;
+
+                html += `<h3>📊 Longest Continuous Friend Session</h3>`;
+                html += `<div class="metrics-grid">`;
+                html += `<div class="metric-card"><h4>Top 5 Points</h4><div class="value" style="font-size: 1em;">${top5.map(([v, c]) => `${formatNumber(Math.floor(v))} seconds: ${formatNumber(c)} occurrences`).join('<br>')}</div></div>`;
+                html += `<div class="metric-card"><h4>Median 5 Points</h4><div class="value" style="font-size: 1em;">${median5.map((v, i) => `${i+1}. ${formatNumber(Math.floor(v))} seconds: ${formatNumber(counts[v] || 0)} occurrences`).join('<br>')}</div></div>`;
+                html += `<div class="metric-card"><h4>Average</h4><div class="value">${mean.toFixed(2)} seconds</div></div>`;
+                html += `</div><hr>`;
+            }
+
+            // Max Friends In One Game
+            const maxFriends = players.map(p => p.maxFriendsInOneGame).filter(v => v > 0);
+            if (maxFriends.length) {
+                const counts = {};
+                maxFriends.forEach(v => counts[v] = (counts[v] || 0) + 1);
+                const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                const top5 = sorted.slice(0, 5);
+                const mode = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+                const modeCount = counts[mode];
+                maxFriends.sort((a, b) => a - b);
+                const median = maxFriends[Math.floor(maxFriends.length / 2)];
+                const mean = maxFriends.reduce((a, b) => a + b, 0) / maxFriends.length;
+
+                html += `<h3>👥 Max Friends In One Game</h3>`;
+                html += `<div class="metrics-grid">`;
+                html += `<div class="metric-card"><h4>Top 5 Points</h4><div class="value" style="font-size: 1em;">${top5.map(([v, c]) => `${formatNumber(Math.floor(v))} friends: ${formatNumber(c)} occurrences`).join('<br>')}</div></div>`;
+                html += `<div class="metric-card"><h4>Highest Frequency</h4><div class="value">${formatNumber(Math.floor(mode))}</div><div class="delta">${formatNumber(modeCount)} occurrences</div></div>`;
+                html += `<div class="metric-card"><h4>Median</h4><div class="value">${formatNumber(Math.floor(median))}</div></div>`;
+                html += `<div class="metric-card"><h4>Average</h4><div class="value">${mean.toFixed(2)}</div></div>`;
+                html += `</div><hr>`;
+            }
+
+            // Total Time With Friends
+            const totalTimes = players.map(p => p.totalTimeWithFriends).filter(v => v > 0);
+            if (totalTimes.length) {
+                const counts = {};
+                totalTimes.forEach(v => counts[v] = (counts[v] || 0) + 1);
+                const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                const top5 = sorted.slice(0, 5);
+                totalTimes.sort((a, b) => a - b);
+                const median = totalTimes[Math.floor(totalTimes.length / 2)];
+                const mean = totalTimes.reduce((a, b) => a + b, 0) / totalTimes.length;
+
+                html += `<h3>⏱️ Total Time With Friends</h3>`;
+                html += `<div class="metrics-grid">`;
+                html += `<div class="metric-card"><h4>Top 5 Points</h4><div class="value" style="font-size: 1em;">${top5.map(([v, c]) => `${formatNumber(Math.floor(v))} seconds: ${formatNumber(c)} occurrences`).join('<br>')}</div></div>`;
+                html += `<div class="metric-card"><h4>Median</h4><div class="value">${formatNumber(Math.floor(median))} seconds</div></div>`;
+                html += `<div class="metric-card"><h4>Average</h4><div class="value">${mean.toFixed(2)} seconds</div></div>`;
+                html += `</div><hr>`;
+            }
+
+            // Friends In Last Game
+            const friendsLast = players.map(p => p.friendsInLastGame).filter(v => v > 0);
+            if (friendsLast.length) {
+                const counts = {};
+                friendsLast.forEach(v => counts[v] = (counts[v] || 0) + 1);
+                const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+                const top5 = sorted.slice(0, 5);
+                const mode = Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+                const modeCount = counts[mode];
+                friendsLast.sort((a, b) => a - b);
+                const median = friendsLast[Math.floor(friendsLast.length / 2)];
+                const mean = friendsLast.reduce((a, b) => a + b, 0) / friendsLast.length;
+
+                html += `<h3>🎮 Friends In Last Game</h3>`;
+                html += `<p style="color: #6c757d; font-style: italic;">More sensitive to recent changes</p>`;
+                html += `<div class="metrics-grid">`;
+                html += `<div class="metric-card"><h4>Top 5 Points</h4><div class="value" style="font-size: 1em;">${top5.map(([v, c]) => `${formatNumber(Math.floor(v))} friends: ${formatNumber(c)} occurrences`).join('<br>')}</div></div>`;
+                html += `<div class="metric-card"><h4>Highest Frequency</h4><div class="value">${formatNumber(Math.floor(mode))}</div><div class="delta">${formatNumber(modeCount)} occurrences</div></div>`;
+                html += `<div class="metric-card"><h4>Median</h4><div class="value">${formatNumber(Math.floor(median))} friends</div></div>`;
+                html += `<div class="metric-card"><h4>Average</h4><div class="value">${mean.toFixed(2)} friends</div></div>`;
+                html += `</div>`;
+            }
+
+            content.innerHTML = html;
+        }
+
+        // Tab 5: Player Age Groups
+        function loadPlayerAgeGroups() {
+            const content = document.getElementById('ageGroupContent');
+            const data = loadFromDatastore('PlayerAgeGroups_V1');
+            
+            if (!data || !data.length) {
+                content.innerHTML = '<div class="warning">⚠️ No player age group data found.</div>';
+                return;
+            }
+
+            const ageGroups = {};
+            data.forEach(d => {
+                let ageGroup = d.ageGroup || 'Unknown';
+                ageGroup = ageGroup.toString();
+                // Normalize
+                if (ageGroup.toLowerCase() === 'under13' || ageGroup === '<13') ageGroup = 'Under13';
+                if (ageGroup.toLowerCase() === '13plus' || ageGroup === '13+') ageGroup = '13Plus';
+                if (!['Under13', '13Plus', 'Unknown'].includes(ageGroup)) ageGroup = 'Unknown';
+                
+                ageGroups[ageGroup] = (ageGroups[ageGroup] || 0) + 1;
+            });
+
+            const total = data.length;
+            const under13 = ageGroups['Under13'] || 0;
+            const plus13 = ageGroups['13Plus'] || 0;
+            const unknown = ageGroups['Unknown'] || 0;
+
+            let html = `<p style="font-size: 18px; margin-bottom: 15px;"><strong>Total Players:</strong> ${formatNumber(total)}</p><hr>`;
+            html += `<h3>📊 Age Group Distribution</h3>`;
+            html += `<div class="metrics-grid">`;
+            html += `<div class="metric-card"><h4>Under 13</h4><div class="value">${formatNumber(under13)}</div><div class="delta">${total > 0 ? ((under13 / total) * 100).toFixed(2) + '%' : '0%'}</div></div>`;
+            html += `<div class="metric-card"><h4>13 Plus</h4><div class="value">${formatNumber(plus13)}</div><div class="delta">${total > 0 ? ((plus13 / total) * 100).toFixed(2) + '%' : '0%'}</div></div>`;
+            html += `<div class="metric-card"><h4>Unknown</h4><div class="value">${formatNumber(unknown)}</div><div class="delta">${total > 0 ? ((unknown / total) * 100).toFixed(2) + '%' : '0%'}</div></div>`;
+            html += `</div><hr>`;
+
+            // Pie chart
+            const chartData = {
+                labels: ['Under13', '13Plus', 'Unknown'],
+                datasets: [{
+                    data: [under13, plus13, unknown],
+                    backgroundColor: ['#FF6B6B', '#4ECDC4', '#95A5A6'],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            };
+
+            html += `<div class="chart-container"><canvas id="ageGroupChart"></canvas></div>`;
+
+            content.innerHTML = html;
+
+            // Create chart after DOM update
+            setTimeout(() => {
+                const ctx = document.getElementById('ageGroupChart');
+                if (ctx) {
+                    new Chart(ctx, {
+                        type: 'pie',
+                        data: chartData,
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        padding: 20,
+                                        font: { size: 14, weight: 'bold' },
+                                        color: '#e0e0e0'
+                                    }
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const label = context.label || '';
+                                            const value = context.parsed || 0;
+                                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                            return `${label}: ${formatNumber(value)} (${percentage}%)`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }, 100);
+        }
+
+        // Tab 6: Avatar Items
+        function loadAvatarItems() {
+            const content = document.getElementById('avatarContent');
+            const data = loadFromDatastore('AvatarItemUsage_V1');
+            
+            if (!data || !data.length) {
+                content.innerHTML = '<div class="warning">⚠️ No avatar item data found.</div>';
+                return;
+            }
+
+            const items = data.map(d => ({
+                assetId: d.assetId,
+                assetName: d.assetName || 'Unknown',
+                creatorName: d.creatorName || 'Unknown',
+                timesSeen: parseFloat(d.timesSeen) || 0
+            })).filter(item => item.assetId)
+                .sort((a, b) => b.timesSeen - a.timesSeen);
+
+            const top100 = items.slice(0, 100);
+            const totalTimesSeen = items.reduce((a, b) => a + b.timesSeen, 0);
+            const avgTimesSeen = items.length > 0 ? totalTimesSeen / items.length : 0;
+            const mostPopular = items.length > 0 ? items[0].timesSeen : 0;
+
+            let html = `<p style="font-size: 18px; margin-bottom: 15px;"><strong>Total Assets:</strong> ${formatNumber(items.length)} | <strong>Showing Top 100</strong></p><hr>`;
+            html += `<table><thead><tr><th>No.</th><th>Asset Name</th><th>Creator</th><th>Times Seen</th><th>Asset ID</th></tr></thead><tbody>`;
+            top100.forEach((item, index) => {
+                html += `<tr><td>${index + 1}</td><td>${item.assetName}</td><td>${item.creatorName}</td><td>${formatNumber(Math.floor(item.timesSeen))}</td><td>${formatNumber(Math.floor(item.assetId))}</td></tr>`;
+            });
+            html += `</tbody></table>`;
+
+            html += `<div class="metrics-grid">`;
+            html += `<div class="metric-card"><h4>Total Assets</h4><div class="value">${formatNumber(items.length)}</div></div>`;
+            html += `<div class="metric-card"><h4>Total Times Seen</h4><div class="value">${formatNumber(Math.floor(totalTimesSeen))}</div></div>`;
+            html += `<div class="metric-card"><h4>Average Times Seen</h4><div class="value">${avgTimesSeen.toFixed(2)}</div></div>`;
+            html += `<div class="metric-card"><h4>Most Popular Item</h4><div class="value">${formatNumber(Math.floor(mostPopular))}</div></div>`;
+            html += `</div><hr>`;
+
+            // Top 100 NOT from Roblox
+            const notRoblox = items.filter(item => 
+                item.creatorName && 
+                item.creatorName.toString().toLowerCase() !== 'roblox'
+            );
+            const top100NotRoblox = notRoblox.slice(0, 100);
+
+            if (notRoblox.length > 0) {
+                html += `<h3>Top 100 Items (Not from Roblox)</h3>`;
+                html += `<p style="font-size: 18px; margin-bottom: 15px;"><strong>Total Non-Roblox Assets:</strong> ${formatNumber(notRoblox.length)} | <strong>Showing Top 100</strong></p><hr>`;
+                html += `<table><thead><tr><th>No.</th><th>Asset Name</th><th>Creator</th><th>Times Seen</th><th>Asset ID</th></tr></thead><tbody>`;
+                top100NotRoblox.forEach((item, index) => {
+                    html += `<tr><td>${index + 1}</td><td>${item.assetName}</td><td>${item.creatorName}</td><td>${formatNumber(Math.floor(item.timesSeen))}</td><td>${formatNumber(Math.floor(item.assetId))}</td></tr>`;
+                });
+                html += `</tbody></table>`;
+
+                const notRobloxTotal = notRoblox.reduce((a, b) => a + b.timesSeen, 0);
+                const notRobloxAvg = notRoblox.length > 0 ? notRobloxTotal / notRoblox.length : 0;
+                const notRobloxMost = notRoblox.length > 0 ? notRoblox[0].timesSeen : 0;
+
+                html += `<div class="metrics-grid">`;
+                html += `<div class="metric-card"><h4>Non-Roblox Assets</h4><div class="value">${formatNumber(notRoblox.length)}</div></div>`;
+                html += `<div class="metric-card"><h4>Total Times Seen</h4><div class="value">${formatNumber(Math.floor(notRobloxTotal))}</div></div>`;
+                html += `<div class="metric-card"><h4>Average Times Seen</h4><div class="value">${notRobloxAvg.toFixed(2)}</div></div>`;
+                html += `<div class="metric-card"><h4>Most Popular Item</h4><div class="value">${formatNumber(Math.floor(notRobloxMost))}</div></div>`;
+                html += `</div>`;
+            } else {
+                html += `<div class="info">No items found from creators other than Roblox.</div>`;
+            }
+
+            content.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

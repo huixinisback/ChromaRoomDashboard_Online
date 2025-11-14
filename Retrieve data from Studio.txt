@@ -1,0 +1,44 @@
+local DSS = game:GetService("DataStoreService")
+local store = DSS:GetDataStore("AreaTimeRecords_V1") --AreaTimeRecords_V1, AvatarItemUsage_V1, FeatureUsage_V1, FriendConnections_V1, PlayerAgeGroups_V1
+
+
+-- List all keys (up to 25 per page)
+local success, pages = pcall(function()
+	return store:ListKeysAsync("", 25)
+end)
+
+if not success then
+	warn("Failed to list keys:", pages)
+	return
+end
+
+local allData = {}
+
+while true do
+	for _, keyInfo in ipairs(pages:GetCurrentPage()) do
+		local keyName = keyInfo.KeyName
+		local ok, value = pcall(function()
+			return store:GetAsync(keyName)
+		end)
+		if ok then
+			allData[keyName] = value
+		else
+			warn("Error getting key:", keyName, value)
+		end
+	end
+
+	if pages.IsFinished then
+		break
+	end
+
+	local ok, err = pcall(function()
+		pages:AdvanceToNextPageAsync()
+	end)
+	if not ok then
+		warn("Failed to advance page:", err)
+		break
+	end
+end
+
+print("All data in DataStore:")
+print(allData)
