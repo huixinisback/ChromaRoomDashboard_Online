@@ -107,20 +107,12 @@ This dashboard can be easily deployed as a static site on GitHub Pages!
 2. **Enable GitHub Pages:**
    - Go to your repository on GitHub
    - Click **Settings** → **Pages**
-   - Under "Source", select **GitHub Actions**
-   - The workflow will automatically deploy your site
+   - Under "Source", select **Deploy from a branch**
+   - Choose **main** branch and **/ (root)** folder
+   - Click **Save**
 
 3. **Access your site:**
    - Your dashboard will be available at: `https://YOUR_USERNAME.github.io/YOUR_REPO_NAME/`
-
-### Manual Deployment (Alternative)
-
-If you prefer not to use GitHub Actions:
-
-1. Go to **Settings** → **Pages**
-2. Under "Source", select **Deploy from a branch**
-3. Choose **main** branch and **/ (root)** folder
-4. Click **Save**
 
 ### Important Notes for GitHub Pages
 
